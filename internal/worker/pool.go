@@ -45,6 +45,8 @@ func (p *Pool) Start(ctx context.Context) {
 	}
 }
 
+// worker runs a continuous loop: consume a job, execute it, then ack/retry/fail.
+// Exits when ctx is cancelled.
 func (p *Pool) worker(ctx context.Context, id int) {
 
 	defer p.wg.Done()
@@ -119,7 +121,6 @@ func (p *Pool) worker(ctx context.Context, id int) {
 				slog.Int("retry_count", job.RetryCount),
 			)
 
-			// retry if retries remaining
 			if job.RetryCount < job.MaxRetries {
 
 				job.RetryCount++

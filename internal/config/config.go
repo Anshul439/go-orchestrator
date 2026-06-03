@@ -16,7 +16,7 @@ type Config struct {
 	RedisPassword  string
 	RedisDB        int
 	RedisQueueName string
-	DemoJobCount   int
+	GRPCAddr       string
 }
 
 func LoadConfig() *Config {
@@ -47,18 +47,6 @@ func LoadConfig() *Config {
 		}
 	}
 
-	demoJobCount := 10
-
-	demoJobCountValue := os.Getenv("DEMO_JOB_COUNT")
-
-	if demoJobCountValue != "" {
-		demoJobCount, err = strconv.Atoi(demoJobCountValue)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-
 	return &Config{
 		DBUrl:          os.Getenv("DB_URL"),
 		WorkerCount:    workerCount,
@@ -66,7 +54,7 @@ func LoadConfig() *Config {
 		RedisPassword:  os.Getenv("REDIS_PASSWORD"),
 		RedisDB:        redisDB,
 		RedisQueueName: getEnv("REDIS_QUEUE_NAME", "jobs"),
-		DemoJobCount:   demoJobCount,
+		GRPCAddr:       getEnv("GRPC_ADDR", ":50051"),
 	}
 }
 

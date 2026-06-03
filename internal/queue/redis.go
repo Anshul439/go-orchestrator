@@ -41,6 +41,7 @@ func NewRedisQueue(
 	}
 }
 
+// Start launches the background scheduler that promotes delayed jobs to the ready queue.
 func (q *RedisQueue) Start(ctx context.Context) {
 	ticker := time.NewTicker(q.schedulerInterval)
 
@@ -252,6 +253,7 @@ func (q *RedisQueue) Retry(
 	}
 
 	jobID := strconv.Itoa(job.ID)
+	// score is Unix milliseconds — used by the sorted set to order jobs by execution time.
 	score := float64(
 		time.Now().Add(delay).UnixMilli(),
 	)

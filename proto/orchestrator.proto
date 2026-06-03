@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package orchestrator;
+
+option go_package = "github.com/anshul439/go-orchestrator/proto";
+
+message SubmitJobRequest {
+  int32 max_retries = 1;
+}
+
+message SubmitJobResponse {
+  int32 job_id = 1;
+}
+
+message GetJobRequest {
+  int32 job_id = 1;
+}
+
+message GetJobResponse {
+  int32  job_id      = 1;
+  string status      = 2;
+  int32  retry_count = 3;
+  int32  max_retries = 4;
+}
+
+service OrchestratorService {
+  rpc SubmitJob (SubmitJobRequest) returns (SubmitJobResponse);
+  rpc GetJob    (GetJobRequest)   returns (GetJobResponse);
+}

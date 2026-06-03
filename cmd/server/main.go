@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,10 +11,14 @@ import (
 
 	"github.com/anshul439/go-orchestrator/internal/config"
 	"github.com/anshul439/go-orchestrator/internal/db"
+	"github.com/anshul439/go-orchestrator/internal/server"
 	"github.com/anshul439/go-orchestrator/internal/logger"
 	"github.com/anshul439/go-orchestrator/internal/queue"
 	"github.com/anshul439/go-orchestrator/internal/worker"
+	pb "github.com/anshul439/go-orchestrator/proto"
+
 	gredis "github.com/redis/go-redis/v9"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -88,31 +93,39 @@ func main() {
 
 	pool.Start(ctx)
 
-	for i := 0; i < cfg.DemoJobCount; i++ {
-		jobID, err := db.InsertJob(poolConn, 3)
+lis, err := net.Listen(
+	"tcp",
+	cfg.GRPCAddr,
+)
 
-		if err != nil {
-			log.Error(
-				"failed to insert demo job",
-				slog.String("error", err.Error()),
-			)
-			os.Exit(1)
-		}
+if err != nil {
+	log.Error(
+		"failed to listen",
+		slog.String("error", err.Error()),
+	)
+	os.Exit(1)
+}
 
-		job := queue.Job{
-			ID:         jobID,
-			MaxRetries: 3,
-		}
+grpcSrv := grpc.NewServer()
 
-		if err := q.Enqueue(ctx, job); err != nil {
-			log.Error(
-				"failed to enqueue demo job",
-				slog.Int("job_id", job.ID),
-				slog.String("error", err.Error()),
-			)
-			os.Exit(1)
-		}
+pb.RegisterOrchestratorServiceServer(
+	grpcSrv,
+	server.New(poolConn, q),
+)
+
+go func() {
+	log.Info(
+		"gRPC server listening",
+		slog.String("addr", cfg.GRPCAddr),
+	)
+
+	if err := grpcSrv.Serve(lis); err != nil {
+		log.Error(
+			"gRPC server failed",
+			slog.String("error", err.Error()),
+		)
 	}
+}()
 
 	signalChan := make(chan os.Signal, 1)
 
@@ -122,9 +135,11 @@ func main() {
 		syscall.SIGTERM,
 	)
 
-	<-signalChan
+<-signalChan
 
-	cancel()
+cancel()
 
-	pool.Wait()
+grpcSrv.GracefulStop()
+
+pool.Wait()
 }
