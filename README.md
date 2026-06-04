@@ -1,6 +1,6 @@
 # go-orchestrator
 
-A distributed background job processing system built in Go. Jobs are submitted over gRPC, queued in Redis, persisted in Postgres, and executed by a worker pool with retry and recovery.
+A background job processing system built in Go. Jobs are submitted over gRPC, queued in Redis, persisted in Postgres, and executed by a worker pool with retry and recovery.
 
 ## Features
 
@@ -30,6 +30,8 @@ cmd/cli  ──gRPC──►  cmd/server
 - Go 1.21+
 - PostgreSQL
 - Redis
+- [Task](https://taskfile.dev/)
+- [`golang-migrate`](https://github.com/golang-migrate/migrate)
 - `protoc` + Go plugins (only needed to regenerate proto)
 
 ## Setup
@@ -41,11 +43,8 @@ createdb -U postgres orchestrator
 # Copy env config
 cp .env.example .env
 
-# Export DB_URL for the migrate CLI
-export $(grep '^DB_URL=' .env | xargs)
-
 # Apply migrations
-migrate -path migrations -database "$DB_URL" up
+task migrate:up
 ```
 
 ## Configuration
@@ -65,48 +64,48 @@ migrate -path migrations -database "$DB_URL" up
 Create a new migration:
 
 ```bash
-migrate create -ext sql -dir migrations -seq <name>
+task migrate:create NAME=<name>
 ```
 
 Apply all pending migrations:
 
 ```bash
-migrate -path migrations -database "$DB_URL" up
+task migrate:up
 ```
 
 Roll back the most recent migration:
 
 ```bash
-migrate -path migrations -database "$DB_URL" down 1
+task migrate:down
 ```
 
 Check the current migration version:
 
 ```bash
-migrate -path migrations -database "$DB_URL" version
+task migrate:version
 ```
 
 ## Running
 
 ```bash
 # Start the orchestrator server
-go run ./cmd/server
+task run
 ```
 
 ## CLI Usage
 
 ```bash
 # Start the server first
-go run ./cmd/server
+task run
 
 # Submit a job (uses default 3 retries)
-go run ./cmd/cli submit
+task cli:submit
 
 # Submit a job with custom max retries
-go run ./cmd/cli submit 5
+task cli:submit RETRIES=5
 
 # Check job status
-go run ./cmd/cli status <job-id>
+task cli:status ID=<job-id>
 ```
 
 Example output:
@@ -123,9 +122,7 @@ the CLI treats it as `localhost:50051`.
 If you modify `proto/orchestrator.proto`, regenerate Go code with:
 
 ```bash
-protoc --go_out=. --go_opt=paths=source_relative \
-       --go-grpc_out=. --go-grpc_opt=paths=source_relative \
-       proto/orchestrator.proto
+task proto
 ```
 
 Requires `protoc-gen-go` and `protoc-gen-go-grpc` in your `$PATH`:

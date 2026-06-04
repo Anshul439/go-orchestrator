@@ -1,0 +1,64 @@
+version: "3"
+
+dotenv:
+  - .env
+
+tasks:
+  run:
+    desc: Start the gRPC server
+    cmds:
+      - go run ./cmd/server
+
+  test:
+    desc: Run Go tests
+    cmds:
+      - go test ./...
+
+  fmt:
+    desc: Format Go code
+    cmds:
+      - go fmt ./...
+
+  proto:
+    desc: Regenerate protobuf and gRPC Go files
+    cmds:
+      - >
+        protoc --go_out=. --go_opt=paths=source_relative
+        --go-grpc_out=. --go-grpc_opt=paths=source_relative
+        proto/orchestrator.proto
+
+  migrate:up:
+    desc: Apply all pending database migrations
+    cmds:
+      - migrate -path migrations -database "$DB_URL" up
+
+  migrate:down:
+    desc: Roll back the most recent migration
+    cmds:
+      - migrate -path migrations -database "$DB_URL" down 1
+
+  migrate:version:
+    desc: Show the current migration version
+    cmds:
+      - migrate -path migrations -database "$DB_URL" version
+
+  migrate:create:
+    desc: Create a new sequential SQL migration
+    requires:
+      vars: [NAME]
+    cmds:
+      - migrate create -ext sql -dir migrations -seq "{{.NAME}}"
+
+  cli:submit:
+    desc: Submit a job
+    vars:
+      RETRIES: '{{default "3" .RETRIES}}'
+    cmds:
+      - go run ./cmd/cli submit {{.RETRIES}}
+
+  cli:status:
+    desc: Check job status
+    requires:
+      vars: [ID]
+    cmds:
+      - go run ./cmd/cli status {{.ID}}

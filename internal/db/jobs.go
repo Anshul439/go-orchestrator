@@ -89,18 +89,18 @@ func ResetRunningJobs(
 // JobRow is the DB representation of a job.
 // Distinct from queue.Job, which is the lightweight in-memory struct used by the queue and workers.
 type JobRow struct {
-    ID         int
-    Status     string
-    RetryCount int
+	ID         int
+	Status     string
+	RetryCount int
 	MaxRetries int
 }
 
 func GetJob(conn *pgxpool.Pool, jobID int) (JobRow, error) {
-    var row JobRow
+	var row JobRow
 
- query := `SELECT id, status, retry_count, max_retries FROM jobs WHERE id = $1`
-    err := conn.QueryRow(context.Background(), query, jobID).
-        Scan(&row.ID, &row.Status, &row.RetryCount, &row.MaxRetries)
+	query := `SELECT id, status, retry_count, max_retries FROM jobs WHERE id = $1`
+	err := conn.QueryRow(context.Background(), query, jobID).
+		Scan(&row.ID, &row.Status, &row.RetryCount, &row.MaxRetries)
 
-    return row, err
+	return row, err
 }

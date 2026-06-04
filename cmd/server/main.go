@@ -11,9 +11,9 @@ import (
 
 	"github.com/anshul439/go-orchestrator/internal/config"
 	"github.com/anshul439/go-orchestrator/internal/db"
-	"github.com/anshul439/go-orchestrator/internal/server"
 	"github.com/anshul439/go-orchestrator/internal/logger"
 	"github.com/anshul439/go-orchestrator/internal/queue"
+	"github.com/anshul439/go-orchestrator/internal/server"
 	"github.com/anshul439/go-orchestrator/internal/worker"
 	pb "github.com/anshul439/go-orchestrator/proto"
 
@@ -93,39 +93,39 @@ func main() {
 
 	pool.Start(ctx)
 
-lis, err := net.Listen(
-	"tcp",
-	cfg.GRPCAddr,
-)
-
-if err != nil {
-	log.Error(
-		"failed to listen",
-		slog.String("error", err.Error()),
-	)
-	os.Exit(1)
-}
-
-grpcSrv := grpc.NewServer()
-
-pb.RegisterOrchestratorServiceServer(
-	grpcSrv,
-	server.New(poolConn, q),
-)
-
-go func() {
-	log.Info(
-		"gRPC server listening",
-		slog.String("addr", cfg.GRPCAddr),
+	lis, err := net.Listen(
+		"tcp",
+		cfg.GRPCAddr,
 	)
 
-	if err := grpcSrv.Serve(lis); err != nil {
+	if err != nil {
 		log.Error(
-			"gRPC server failed",
+			"failed to listen",
 			slog.String("error", err.Error()),
 		)
+		os.Exit(1)
 	}
-}()
+
+	grpcSrv := grpc.NewServer()
+
+	pb.RegisterOrchestratorServiceServer(
+		grpcSrv,
+		server.New(poolConn, q),
+	)
+
+	go func() {
+		log.Info(
+			"gRPC server listening",
+			slog.String("addr", cfg.GRPCAddr),
+		)
+
+		if err := grpcSrv.Serve(lis); err != nil {
+			log.Error(
+				"gRPC server failed",
+				slog.String("error", err.Error()),
+			)
+		}
+	}()
 
 	signalChan := make(chan os.Signal, 1)
 
@@ -135,11 +135,11 @@ go func() {
 		syscall.SIGTERM,
 	)
 
-<-signalChan
+	<-signalChan
 
-cancel()
+	cancel()
 
-grpcSrv.GracefulStop()
+	grpcSrv.GracefulStop()
 
-pool.Wait()
+	pool.Wait()
 }
