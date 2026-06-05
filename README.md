@@ -5,6 +5,7 @@ A background job processing system built in Go. Jobs are submitted over gRPC, qu
 ## Features
 
 - gRPC API for job submission and status queries
+- Job type and payload — route different kinds of work to appropriate handlers
 - CLI client (`cmd/cli`) for submitting and inspecting jobs
 - Worker pool for concurrent job execution
 - Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
@@ -98,20 +99,23 @@ task run
 # Start the server first
 task run
 
-# Submit a job (uses default 3 retries)
-task cli:submit
+# Submit a job with type and payload
+go run ./cmd/cli submit --type=send_email --payload='{"to":"x@y.com"}'
 
-# Submit a job with custom max retries
-task cli:submit RETRIES=5
+# Submit with custom max retries
+go run ./cmd/cli submit --type=resize_image --payload='{"url":"s3://img.jpg"}' --retries=5
+
+# Submit with defaults (type=generic, payload={}, retries=3)
+go run ./cmd/cli submit
 
 # Check job status
-task cli:status ID=<job-id>
+go run ./cmd/cli status <job-id>
 ```
 
 Example output:
 ```
-job submitted, id: 42
-job 42: status=completed retries=1/5
+job submitted, id: 42 (type=send_email)
+job 42 (send_email): status=completed retries=1/3
 ```
 
 The CLI reads `GRPC_ADDR` too. If it is set to a listen-style value like `:50051`,

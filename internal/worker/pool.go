@@ -109,6 +109,12 @@ func (p *Pool) worker(ctx context.Context, id int) {
 			return
 		}
 
+		p.logger.Info("simulating job execution",
+			slog.Int("job_id", job.ID),
+			slog.String("type", job.Type),
+			slog.String("payload", job.Payload),
+		)
+
 		// simulate random failure
 		failed := rand.Intn(2) == 0
 

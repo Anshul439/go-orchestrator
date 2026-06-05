@@ -9,6 +9,8 @@ import (
 func InsertJob(
 	conn *pgxpool.Pool,
 	maxRetries int,
+	jobType string,
+	payload string,
 ) (int, error) {
 
 	var jobID int
@@ -17,9 +19,11 @@ func InsertJob(
 		INSERT INTO jobs (
 			status,
 			retry_count,
-			max_retries
+			max_retries,
+			type,
+			payload
 		)
-		VALUES ($1, $2, $3)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id
 	`
 
@@ -29,6 +33,8 @@ func InsertJob(
 		"pending",
 		0,
 		maxRetries,
+		jobType,
+		payload,
 	).Scan(&jobID)
 
 	if err != nil {
@@ -43,6 +49,7 @@ func UpdateJobState(
 	jobID int,
 	state string,
 	retryCount int,
+
 ) error {
 
 	query := `
@@ -93,14 +100,16 @@ type JobRow struct {
 	Status     string
 	RetryCount int
 	MaxRetries int
+	Type       string
+	Payload    string
 }
 
 func GetJob(conn *pgxpool.Pool, jobID int) (JobRow, error) {
 	var row JobRow
 
-	query := `SELECT id, status, retry_count, max_retries FROM jobs WHERE id = $1`
+	query := `SELECT id, status, retry_count, max_retries, type, payload FROM jobs WHERE id = $1`
 	err := conn.QueryRow(context.Background(), query, jobID).
-		Scan(&row.ID, &row.Status, &row.RetryCount, &row.MaxRetries)
+		Scan(&row.ID, &row.Status, &row.RetryCount, &row.MaxRetries, &row.Type, &row.Payload)
 
 	return row, err
 }

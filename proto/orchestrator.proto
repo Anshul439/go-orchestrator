@@ -5,7 +5,9 @@ package orchestrator;
 option go_package = "github.com/anshul439/go-orchestrator/proto";
 
 message SubmitJobRequest {
-  int32 max_retries = 1;
+  int32  max_retries = 1;
+  string type        = 2;
+  string payload     = 3;
 }
 
 message SubmitJobResponse {
@@ -21,6 +23,8 @@ message GetJobResponse {
   string status      = 2;
   int32  retry_count = 3;
   int32  max_retries = 4;
+  string type        = 5;
+  string payload     = 6;
 }
 
 service OrchestratorService {

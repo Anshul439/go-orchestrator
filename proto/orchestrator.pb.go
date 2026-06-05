@@ -4,7 +4,7 @@
 // 	protoc        v7.35.0
 // source: proto/orchestrator.proto
 
-package orchestrator
+package proto
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -24,6 +24,8 @@ const (
 type SubmitJobRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	MaxRetries    int32                  `protobuf:"varint,1,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
+	Type          string                 `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	Payload       string                 `protobuf:"bytes,3,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -63,6 +65,20 @@ func (x *SubmitJobRequest) GetMaxRetries() int32 {
 		return x.MaxRetries
 	}
 	return 0
+}
+
+func (x *SubmitJobRequest) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *SubmitJobRequest) GetPayload() string {
+	if x != nil {
+		return x.Payload
+	}
+	return ""
 }
 
 type SubmitJobResponse struct {
@@ -159,6 +175,8 @@ type GetJobResponse struct {
 	Status        string                 `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
 	RetryCount    int32                  `protobuf:"varint,3,opt,name=retry_count,json=retryCount,proto3" json:"retry_count,omitempty"`
 	MaxRetries    int32                  `protobuf:"varint,4,opt,name=max_retries,json=maxRetries,proto3" json:"max_retries,omitempty"`
+	Type          string                 `protobuf:"bytes,5,opt,name=type,proto3" json:"type,omitempty"`
+	Payload       string                 `protobuf:"bytes,6,opt,name=payload,proto3" json:"payload,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -221,28 +239,46 @@ func (x *GetJobResponse) GetMaxRetries() int32 {
 	return 0
 }
 
+func (x *GetJobResponse) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *GetJobResponse) GetPayload() string {
+	if x != nil {
+		return x.Payload
+	}
+	return ""
+}
+
 var File_proto_orchestrator_proto protoreflect.FileDescriptor
 
 const file_proto_orchestrator_proto_rawDesc = "" +
 	"\n" +
-	"\x18proto/orchestrator.proto\x12\forchestrator\"3\n" +
+	"\x18proto/orchestrator.proto\x12\forchestrator\"a\n" +
 	"\x10SubmitJobRequest\x12\x1f\n" +
 	"\vmax_retries\x18\x01 \x01(\x05R\n" +
-	"maxRetries\"*\n" +
+	"maxRetries\x12\x12\n" +
+	"\x04type\x18\x02 \x01(\tR\x04type\x12\x18\n" +
+	"\apayload\x18\x03 \x01(\tR\apayload\"*\n" +
 	"\x11SubmitJobResponse\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\x05R\x05jobId\"&\n" +
 	"\rGetJobRequest\x12\x15\n" +
-	"\x06job_id\x18\x01 \x01(\x05R\x05jobId\"\x81\x01\n" +
+	"\x06job_id\x18\x01 \x01(\x05R\x05jobId\"\xaf\x01\n" +
 	"\x0eGetJobResponse\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\x05R\x05jobId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12\x1f\n" +
 	"\vretry_count\x18\x03 \x01(\x05R\n" +
 	"retryCount\x12\x1f\n" +
 	"\vmax_retries\x18\x04 \x01(\x05R\n" +
-	"maxRetries2\xa8\x01\n" +
+	"maxRetries\x12\x12\n" +
+	"\x04type\x18\x05 \x01(\tR\x04type\x12\x18\n" +
+	"\apayload\x18\x06 \x01(\tR\apayload2\xa8\x01\n" +
 	"\x13OrchestratorService\x12L\n" +
 	"\tSubmitJob\x12\x1e.orchestrator.SubmitJobRequest\x1a\x1f.orchestrator.SubmitJobResponse\x12C\n" +
-	"\x06GetJob\x12\x1b.orchestrator.GetJobRequest\x1a\x1c.orchestrator.GetJobResponseB7Z5github.com/anshul439/go-orchestrator/gen/orchestratorb\x06proto3"
+	"\x06GetJob\x12\x1b.orchestrator.GetJobRequest\x1a\x1c.orchestrator.GetJobResponseB,Z*github.com/anshul439/go-orchestrator/protob\x06proto3"
 
 var (
 	file_proto_orchestrator_proto_rawDescOnce sync.Once

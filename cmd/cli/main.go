@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
@@ -54,22 +55,23 @@ func main() {
 
 	switch os.Args[1] {
 	case "submit":
-		retries := int32(3) // default if not provided
-		if len(os.Args) > 2 {
-			n, err := strconv.Atoi(os.Args[2])
-			if err != nil {
-				fmt.Println("error: max retries must be a number")
-				os.Exit(1)
-			}
-			retries = int32(n)
-		}
+		submitFlags := flag.NewFlagSet("submit", flag.ExitOnError)
+		retries := submitFlags.Int("retries", 3, "max retry count")
+		jobType := submitFlags.String("type", "generic", "job type")
+		payload := submitFlags.String("payload", "{}", "job payload as JSON string")
+		submitFlags.Parse(os.Args[2:])
 
-		resp, err := client.SubmitJob(context.Background(), &pb.SubmitJobRequest{MaxRetries: retries})
+		resp, err := client.SubmitJob(context.Background(), &pb.SubmitJobRequest{
+			MaxRetries: int32(*retries),
+			Type:       *jobType,
+			Payload:    *payload,
+		})
+
 		if err != nil {
 			fmt.Println("error:", err)
 			os.Exit(1)
 		}
-		fmt.Println("job submitted, id:", resp.JobId)
+		fmt.Printf("job submitted, id: %d (type=%s)\n", resp.JobId, *jobType)
 
 	case "status":
 		if len(os.Args) < 3 {
@@ -89,8 +91,8 @@ func main() {
 			fmt.Println("error:", err)
 			os.Exit(1)
 		}
-		fmt.Printf("job %d: status=%s retries=%d/%d\n",
-			resp.JobId, resp.Status, resp.RetryCount, resp.MaxRetries)
+		fmt.Printf("job %d (%s): status=%s retries=%d/%d\n",
+			resp.JobId, resp.Type, resp.Status, resp.RetryCount, resp.MaxRetries)
 
 	default:
 		fmt.Printf("error: unknown command %q\n", os.Args[1])

@@ -4,7 +4,7 @@
 // - protoc             v7.35.0
 // source: proto/orchestrator.proto
 
-package orchestrator
+package proto
 
 import (
 	context "context"

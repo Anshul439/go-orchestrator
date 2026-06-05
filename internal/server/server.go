@@ -21,12 +21,12 @@ func New(db *pgxpool.Pool, q queue.Queue) *Server {
 }
 
 func (s *Server) SubmitJob(ctx context.Context, req *pb.SubmitJobRequest) (*pb.SubmitJobResponse, error) {
-	jobID, err := db.InsertJob(s.db, int(req.MaxRetries))
+	jobID, err := db.InsertJob(s.db, int(req.MaxRetries), req.Type, req.Payload)
 	if err != nil {
 		return nil, err
 	}
 
-	job := queue.Job{ID: jobID, MaxRetries: int(req.MaxRetries)}
+	job := queue.Job{ID: jobID, MaxRetries: int(req.MaxRetries), Type: req.Type, Payload: req.Payload}
 	if err := s.queue.Enqueue(ctx, job); err != nil {
 		return nil, err
 	}
@@ -45,5 +45,8 @@ func (s *Server) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.GetJobR
 		Status:     job.Status,
 		RetryCount: int32(job.RetryCount),
 		MaxRetries: int32(job.MaxRetries),
+		Type:       job.Type,
+		Payload:    job.Payload,
 	}, nil
+
 }
