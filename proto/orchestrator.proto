@@ -27,7 +27,39 @@ message GetJobResponse {
   string payload     = 6;
 }
 
+message ReadySignal {}
+
+message TaskResult {
+  int32  job_id  = 1;
+  bool   success = 2;
+  string error   = 3; // populated if success=false
+}
+
+message WorkerMessage {
+  string worker_id = 1;
+  oneof payload {
+    ReadySignal ready  = 2;
+    TaskResult  result = 3;
+  }
+}
+
+message TaskAssignment {
+  int32  job_id      = 1;
+  string type        = 2;
+  string payload     = 3;
+  int32  retry_count = 4;
+  int32  max_retries = 5;
+}
+
+message ServerMessage {
+  oneof payload {
+    TaskAssignment task = 1;
+  }
+}
+
 service OrchestratorService {
-  rpc SubmitJob (SubmitJobRequest) returns (SubmitJobResponse);
-  rpc GetJob    (GetJobRequest)   returns (GetJobResponse);
+  rpc SubmitJob (SubmitJobRequest)     returns (SubmitJobResponse);
+  rpc GetJob    (GetJobRequest)        returns (GetJobResponse);
+  // Work is a bidirectional stream — worker sends ready/result, server sends job assignments.
+  rpc Work      (stream WorkerMessage) returns (stream ServerMessage);
 }

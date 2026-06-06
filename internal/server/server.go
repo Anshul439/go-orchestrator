@@ -7,6 +7,8 @@ import (
 	"github.com/anshul439/go-orchestrator/internal/queue"
 	pb "github.com/anshul439/go-orchestrator/proto"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"math"
+	"time"
 )
 
 // Server implements the generated OrchestratorServiceServer interface.
@@ -49,4 +51,77 @@ func (s *Server) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.GetJobR
 		Payload:    job.Payload,
 	}, nil
 
+}
+
+func (s *Server) Work(stream pb.OrchestratorService_WorkServer) error {
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			return err
+		}
+
+		switch p := msg.Payload.(type) {
+		case *pb.WorkerMessage_Ready:
+			job, err := s.queue.Consume(stream.Context())
+			if err != nil {
+				return err
+			}
+
+			if err := db.UpdateJobState(s.db, job.ID, "running", job.RetryCount); err != nil {
+				return err
+			}
+
+			stream.Send(&pb.ServerMessage{
+				Payload: &pb.ServerMessage_Task{
+					Task: &pb.TaskAssignment{
+						JobId:      int32(job.ID),
+						Type:       job.Type,
+						Payload:    job.Payload,
+						RetryCount: int32(job.RetryCount),
+						MaxRetries: int32(job.MaxRetries),
+					},
+				},
+			})
+
+		case *pb.WorkerMessage_Result:
+			s.handleResult(stream.Context(), p.Result)
+		}
+	}
+}
+
+func (s *Server) handleResult(ctx context.Context, result *pb.TaskResult) {
+	jobID := int(result.JobId)
+
+	if result.Success {
+		row, err := db.GetJob(s.db, jobID)
+		if err != nil {
+			return
+		}
+		s.queue.Ack(ctx, queue.Job{ID: jobID})
+		db.UpdateJobState(s.db, jobID, "completed", row.RetryCount)
+		return
+	}
+
+	row, err := db.GetJob(s.db, jobID)
+	if err != nil {
+		return
+	}
+
+	job := queue.Job{
+		ID:         row.ID,
+		Type:       row.Type,
+		Payload:    row.Payload,
+		RetryCount: row.RetryCount,
+		MaxRetries: row.MaxRetries,
+	}
+
+	if job.RetryCount < job.MaxRetries {
+		job.RetryCount++
+		delay := time.Duration(math.Pow(2, float64(job.RetryCount))) * time.Second
+		db.UpdateJobState(s.db, job.ID, "retrying", job.RetryCount)
+		s.queue.Retry(ctx, job, delay)
+	} else {
+		db.UpdateJobState(s.db, job.ID, "failed", job.RetryCount)
+		s.queue.Fail(ctx, job)
+	}
 }

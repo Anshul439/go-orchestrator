@@ -1,13 +1,13 @@
 # go-orchestrator
 
-A background job processing system built in Go. Jobs are submitted over gRPC, queued in Redis, persisted in Postgres, and executed by a worker pool with retry and recovery.
+A distributed background job processing system built in Go. Jobs are submitted over gRPC, queued in Redis, persisted in Postgres, and executed by separate worker processes that communicate with the server via bidirectional gRPC streaming.
 
 ## Features
 
 - gRPC API for job submission and status queries
 - Job type and payload — route different kinds of work to appropriate handlers
 - CLI client (`cmd/cli`) for submitting and inspecting jobs
-- Worker pool for concurrent job execution
+- Distributed workers (`cmd/worker`) — separate processes communicating with the server via bidirectional gRPC streaming
 - Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
 - Postgres-backed job persistence
 - Exponential backoff retry with configurable max retries
@@ -19,12 +19,14 @@ A background job processing system built in Go. Jobs are submitted over gRPC, qu
 ## Architecture
 
 ```
-cmd/cli  ──gRPC──►  cmd/server
+cmd/cli  ──gRPC──►  cmd/server  ◄──gRPC stream──  cmd/worker
                         ├── internal/server   (gRPC handlers)
                         ├── internal/queue    (Redis queue)
-                        ├── internal/worker   (worker pool)
                         └── internal/db       (Postgres)
 ```
+
+The server and workers are separate processes. Workers connect to the server over a persistent
+bidirectional stream, receive job assignments, execute them, and report results back.
 
 ## Requirements
 
@@ -88,16 +90,30 @@ task migrate:version
 
 ## Running
 
+The server and workers are separate processes. Start them in separate terminals:
+
 ```bash
-# Start the orchestrator server
-task run
+# Terminal 1 — start the gRPC server
+task server
+
+# Terminal 2 — start the workers (connects to server via gRPC stream)
+task worker
+```
+
+`WORKER_COUNT` in `.env` controls how many concurrent worker goroutines the worker process spawns.
+
+For hot reload during development:
+
+```bash
+task dev:server   # auto-restarts server on file change
+task dev:worker   # auto-restarts worker on file change
 ```
 
 ## CLI Usage
 
 ```bash
 # Start the server first
-task run
+task server
 
 # Submit a job with type and payload
 go run ./cmd/cli submit --type=send_email --payload='{"to":"x@y.com"}'

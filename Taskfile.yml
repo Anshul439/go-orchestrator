@@ -4,10 +4,25 @@ dotenv:
   - .env
 
 tasks:
-  run:
+  server:
     desc: Start the gRPC server
     cmds:
       - go run ./cmd/server
+
+  worker:
+    desc: Start the worker process
+    cmds:
+      - go run ./cmd/worker
+
+  dev:server:
+    desc: Start server with hot reload
+    cmds:
+      - air -c configs/air.server.toml
+
+  dev:worker:
+    desc: Start worker with hot reload
+    cmds:
+      - air -c configs/air.worker.toml
 
   test:
     desc: Run Go tests
@@ -54,7 +69,7 @@ tasks:
     vars:
       RETRIES: '{{default "3" .RETRIES}}'
     cmds:
-      - go run ./cmd/cli submit {{.RETRIES}}
+      - go run ./cmd/cli submit --retries={{.RETRIES}}
 
   cli:status:
     desc: Check job status

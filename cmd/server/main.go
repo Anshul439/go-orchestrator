@@ -14,7 +14,6 @@ import (
 	"github.com/anshul439/go-orchestrator/internal/logger"
 	"github.com/anshul439/go-orchestrator/internal/queue"
 	"github.com/anshul439/go-orchestrator/internal/server"
-	"github.com/anshul439/go-orchestrator/internal/worker"
 	pb "github.com/anshul439/go-orchestrator/proto"
 
 	gredis "github.com/redis/go-redis/v9"
@@ -84,15 +83,6 @@ func main() {
 
 	q.Start(ctx)
 
-	pool := worker.NewPool(
-		cfg.WorkerCount,
-		q,
-		poolConn,
-		log,
-	)
-
-	pool.Start(ctx)
-
 	lis, err := net.Listen(
 		"tcp",
 		cfg.GRPCAddr,
@@ -140,6 +130,4 @@ func main() {
 	cancel()
 
 	grpcSrv.GracefulStop()
-
-	pool.Wait()
 }
