@@ -101,13 +101,6 @@ func (q *RedisQueue) Enqueue(
 	ctx context.Context,
 	job Job,
 ) error {
-	return q.enqueueReady(ctx, job)
-}
-
-func (q *RedisQueue) enqueueReady(
-	ctx context.Context,
-	job Job,
-) error {
 	payload, err := json.Marshal(job)
 
 	if err != nil {
@@ -148,6 +141,7 @@ func (q *RedisQueue) enqueueReady(
 
 	return err
 }
+
 
 func (q *RedisQueue) Consume(
 	ctx context.Context,

@@ -54,9 +54,15 @@ func (s *Server) GetJob(ctx context.Context, req *pb.GetJobRequest) (*pb.GetJobR
 }
 
 func (s *Server) Work(stream pb.OrchestratorService_WorkServer) error {
+	var inFlight *queue.Job
+
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
+			if inFlight != nil {
+				db.UpdateJobState(s.db, inFlight.ID, "pending", inFlight.RetryCount)
+				s.queue.Retry(context.Background(), *inFlight, 0)
+			}
 			return err
 		}
 
@@ -71,6 +77,8 @@ func (s *Server) Work(stream pb.OrchestratorService_WorkServer) error {
 				return err
 			}
 
+			inFlight = &job
+
 			stream.Send(&pb.ServerMessage{
 				Payload: &pb.ServerMessage_Task{
 					Task: &pb.TaskAssignment{
@@ -84,6 +92,7 @@ func (s *Server) Work(stream pb.OrchestratorService_WorkServer) error {
 			})
 
 		case *pb.WorkerMessage_Result:
+			inFlight = nil
 			s.handleResult(stream.Context(), p.Result)
 		}
 	}

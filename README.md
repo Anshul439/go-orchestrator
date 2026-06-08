@@ -11,7 +11,7 @@ A distributed job orchestrator built in Go. The server coordinates job assignmen
 - Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
 - Postgres-backed job persistence
 - Exponential backoff retry with configurable max retries
-- Crash recovery — in-flight jobs are re-queued on restart
+- Crash recovery — in-flight jobs are automatically re-queued when a worker disconnects unexpectedly, no server restart needed
 - Delayed job scheduling via Redis sorted sets
 - Structured logging (`log/slog`)
 - Graceful shutdown
