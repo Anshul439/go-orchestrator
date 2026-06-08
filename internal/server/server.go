@@ -125,3 +125,24 @@ func (s *Server) handleResult(ctx context.Context, result *pb.TaskResult) {
 		s.queue.Fail(ctx, job)
 	}
 }
+
+func (s *Server) ListJobs(ctx context.Context, req *pb.ListJobsRequest) (*pb.ListJobsResponse, error) {
+	jobs, err := db.ListJobs(s.db, req.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp []*pb.GetJobResponse
+	for _, j := range jobs {
+		resp = append(resp, &pb.GetJobResponse{
+			JobId:      int32(j.ID),
+			Status:     j.Status,
+			RetryCount: int32(j.RetryCount),
+			MaxRetries: int32(j.MaxRetries),
+			Type:       j.Type,
+			Payload:    j.Payload,
+		})
+	}
+
+	return &pb.ListJobsResponse{Jobs: resp}, nil
+}

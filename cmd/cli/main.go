@@ -15,8 +15,9 @@ import (
 
 func usage() {
 	fmt.Println("usage:")
-	fmt.Println("  go run ./cmd/cli submit [max-retries]")
+	fmt.Println("  go run ./cmd/cli submit [--type=<type>] [--payload=<json>] [--retries=<n>]")
 	fmt.Println("  go run ./cmd/cli status <job-id>")
+	fmt.Println("  go run ./cmd/cli list [--status=<status>]")
 }
 
 func grpcTarget() string {
@@ -93,6 +94,22 @@ func main() {
 		}
 		fmt.Printf("job %d (%s): status=%s retries=%d/%d\n",
 			resp.JobId, resp.Type, resp.Status, resp.RetryCount, resp.MaxRetries)
+
+	case "list":
+		listCmd := flag.NewFlagSet("list", flag.ExitOnError)
+		status := listCmd.String("status", "", "filter by status (pending, running, completed, failed)")
+		listCmd.Parse(os.Args[2:])
+
+		resp, err := client.ListJobs(context.Background(), &pb.ListJobsRequest{Status: *status})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+
+		for _, j := range resp.Jobs {
+			fmt.Printf("job %d (%s): status=%s retries=%d/%d\n",
+				j.JobId, j.Type, j.Status, j.RetryCount, j.MaxRetries)
+		}
 
 	default:
 		fmt.Printf("error: unknown command %q\n", os.Args[1])

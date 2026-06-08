@@ -4,6 +4,7 @@ package orchestrator;
 
 option go_package = "github.com/anshul439/go-orchestrator/proto";
 
+
 message SubmitJobRequest {
   int32  max_retries = 1;
   string type        = 2;
@@ -25,6 +26,14 @@ message GetJobResponse {
   int32  max_retries = 4;
   string type        = 5;
   string payload     = 6;
+}
+
+message ListJobsRequest {
+  string status = 1; // optional filter — empty means all jobs
+}
+
+message ListJobsResponse {
+  repeated GetJobResponse jobs = 1;
 }
 
 message ReadySignal {}
@@ -60,6 +69,7 @@ message ServerMessage {
 service OrchestratorService {
   rpc SubmitJob (SubmitJobRequest)     returns (SubmitJobResponse);
   rpc GetJob    (GetJobRequest)        returns (GetJobResponse);
+  rpc ListJobs  (ListJobsRequest)      returns (ListJobsResponse);
   // Work is a bidirectional stream — worker sends ready/result, server sends job assignments.
   rpc Work      (stream WorkerMessage) returns (stream ServerMessage);
 }

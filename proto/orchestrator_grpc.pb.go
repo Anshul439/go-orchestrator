@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	OrchestratorService_SubmitJob_FullMethodName = "/orchestrator.OrchestratorService/SubmitJob"
 	OrchestratorService_GetJob_FullMethodName    = "/orchestrator.OrchestratorService/GetJob"
+	OrchestratorService_ListJobs_FullMethodName  = "/orchestrator.OrchestratorService/ListJobs"
 	OrchestratorService_Work_FullMethodName      = "/orchestrator.OrchestratorService/Work"
 )
 
@@ -30,6 +31,7 @@ const (
 type OrchestratorServiceClient interface {
 	SubmitJob(ctx context.Context, in *SubmitJobRequest, opts ...grpc.CallOption) (*SubmitJobResponse, error)
 	GetJob(ctx context.Context, in *GetJobRequest, opts ...grpc.CallOption) (*GetJobResponse, error)
+	ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error)
 	// Work is a bidirectional stream — worker sends ready/result, server sends job assignments.
 	Work(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[WorkerMessage, ServerMessage], error)
 }
@@ -62,6 +64,16 @@ func (c *orchestratorServiceClient) GetJob(ctx context.Context, in *GetJobReques
 	return out, nil
 }
 
+func (c *orchestratorServiceClient) ListJobs(ctx context.Context, in *ListJobsRequest, opts ...grpc.CallOption) (*ListJobsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListJobsResponse)
+	err := c.cc.Invoke(ctx, OrchestratorService_ListJobs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *orchestratorServiceClient) Work(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[WorkerMessage, ServerMessage], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &OrchestratorService_ServiceDesc.Streams[0], OrchestratorService_Work_FullMethodName, cOpts...)
@@ -81,6 +93,7 @@ type OrchestratorService_WorkClient = grpc.BidiStreamingClient[WorkerMessage, Se
 type OrchestratorServiceServer interface {
 	SubmitJob(context.Context, *SubmitJobRequest) (*SubmitJobResponse, error)
 	GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error)
+	ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error)
 	// Work is a bidirectional stream — worker sends ready/result, server sends job assignments.
 	Work(grpc.BidiStreamingServer[WorkerMessage, ServerMessage]) error
 	mustEmbedUnimplementedOrchestratorServiceServer()
@@ -98,6 +111,9 @@ func (UnimplementedOrchestratorServiceServer) SubmitJob(context.Context, *Submit
 }
 func (UnimplementedOrchestratorServiceServer) GetJob(context.Context, *GetJobRequest) (*GetJobResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetJob not implemented")
+}
+func (UnimplementedOrchestratorServiceServer) ListJobs(context.Context, *ListJobsRequest) (*ListJobsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListJobs not implemented")
 }
 func (UnimplementedOrchestratorServiceServer) Work(grpc.BidiStreamingServer[WorkerMessage, ServerMessage]) error {
 	return status.Error(codes.Unimplemented, "method Work not implemented")
@@ -159,6 +175,24 @@ func _OrchestratorService_GetJob_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _OrchestratorService_ListJobs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListJobsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OrchestratorServiceServer).ListJobs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OrchestratorService_ListJobs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OrchestratorServiceServer).ListJobs(ctx, req.(*ListJobsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _OrchestratorService_Work_Handler(srv interface{}, stream grpc.ServerStream) error {
 	return srv.(OrchestratorServiceServer).Work(&grpc.GenericServerStream[WorkerMessage, ServerMessage]{ServerStream: stream})
 }
@@ -180,6 +214,10 @@ var OrchestratorService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetJob",
 			Handler:    _OrchestratorService_GetJob_Handler,
+		},
+		{
+			MethodName: "ListJobs",
+			Handler:    _OrchestratorService_ListJobs_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

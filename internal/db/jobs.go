@@ -113,3 +113,31 @@ func GetJob(conn *pgxpool.Pool, jobID int) (JobRow, error) {
 
 	return row, err
 }
+
+func ListJobs(db *pgxpool.Pool, status string) ([]JobRow, error) {
+	query := `SELECT id, status, retry_count, max_retries, type, payload FROM jobs`
+	args := []any{}
+
+	if status != "" {
+		query += ` WHERE status = $1`
+		args = append(args, status)
+	}
+
+	query += ` ORDER BY id DESC`
+
+	rows, err := db.Query(context.Background(), query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []JobRow
+	for rows.Next() {
+		var j JobRow
+		if err := rows.Scan(&j.ID, &j.Status, &j.RetryCount, &j.MaxRetries, &j.Type, &j.Payload); err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, nil
+}

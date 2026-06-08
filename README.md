@@ -1,12 +1,12 @@
 # go-orchestrator
 
-A distributed background job processing system built in Go. Jobs are submitted over gRPC, queued in Redis, persisted in Postgres, and executed by separate worker processes that communicate with the server via bidirectional gRPC streaming.
+A distributed job orchestrator built in Go. The server coordinates job assignment across distributed worker processes via bidirectional gRPC streaming, with Redis-backed queuing and Postgres persistence.
 
 ## Features
 
 - gRPC API for job submission and status queries
 - Job type and payload — route different kinds of work to appropriate handlers
-- CLI client (`cmd/cli`) for submitting and inspecting jobs
+- CLI client (`cmd/cli`) for submitting, inspecting, and listing jobs
 - Distributed workers (`cmd/worker`) — separate processes communicating with the server via bidirectional gRPC streaming
 - Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
 - Postgres-backed job persistence
@@ -126,6 +126,15 @@ go run ./cmd/cli submit
 
 # Check job status
 go run ./cmd/cli status <job-id>
+
+# List all jobs
+go run ./cmd/cli list
+
+# List jobs filtered by status
+go run ./cmd/cli list --status=pending
+go run ./cmd/cli list --status=running
+go run ./cmd/cli list --status=completed
+go run ./cmd/cli list --status=failed
 ```
 
 Example output:
