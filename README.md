@@ -4,16 +4,16 @@ A distributed job orchestrator built in Go. The server coordinates job assignmen
 
 ## Features
 
-- gRPC API for job submission and status queries
-- Job type and payload — route different kinds of work to appropriate handlers
+- gRPC API for job submission, inspection, listing, and cancellation
 - CLI client (`cmd/cli`) for submitting, inspecting, listing, and cancelling jobs
-- Distributed workers (`cmd/worker`) — separate processes communicating with the server via bidirectional gRPC streaming
+- Distributed workers (`cmd/worker`) — separate processes communicating with the server via bidirectional gRPC streams
 - Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
 - Postgres-backed job persistence
 - Exponential backoff retry with configurable max retries
-- Crash recovery — in-flight jobs are automatically re-queued when a worker disconnects unexpectedly, no server restart needed
 - Delayed job scheduling via Redis sorted sets
+- Crash recovery — in-flight jobs are automatically re-queued when a worker disconnects unexpectedly, no server restart needed
 - Job cancellation — cancel pending or running jobs via CLI
+- Docker Compose setup — one command to run the full stack
 - Structured logging (`log/slog`)
 - Graceful shutdown
 
@@ -31,7 +31,7 @@ bidirectional stream, receive job assignments, execute them, and report results 
 
 ## Requirements
 
-- Go 1.21+
+- Go 1.26+
 - PostgreSQL
 - Redis
 - [Task](https://taskfile.dev/)
@@ -39,6 +39,10 @@ bidirectional stream, receive job assignments, execute them, and report results 
 - `protoc` + Go plugins (only needed to regenerate proto)
 
 ## Setup
+
+The recommended way to run the full stack is via Docker (see [Docker](#docker) below).
+
+For local development without Docker:
 
 ```bash
 # Create database
@@ -62,6 +66,41 @@ task migrate:up
 | `REDIS_DB`        | `0`                  | Redis DB index                     |
 | `REDIS_QUEUE_NAME`| `jobs`               | Redis key prefix for queues        |
 | `GRPC_ADDR`       | `:50051`             | gRPC server listen address         |
+
+## Docker
+
+The easiest way to run the full stack. No local Postgres or Redis needed.
+
+```bash
+# Build images and start everything (postgres, redis, server, worker)
+task docker:up
+
+# Follow logs
+task docker:logs
+
+# Stop and remove containers
+task docker:down
+```
+
+The server's gRPC port is exposed on `localhost:50051`, so you can still use the CLI from your host machine:
+
+```bash
+go run ./cmd/cli submit --type=send_email --payload='{}'
+go run ./cmd/cli list
+```
+
+Exposed ports:
+
+| Service | Port  |
+|---------|-------|
+| Server  | 50051 |
+
+Postgres and Redis are only accessible within the Docker network. To inspect them directly:
+
+```bash
+docker compose exec postgres psql -U postgres orchestrator
+docker compose exec redis redis-cli
+```
 
 ## Migrations
 
@@ -109,6 +148,7 @@ For hot reload during development:
 task dev:server   # auto-restarts server on file change
 task dev:worker   # auto-restarts worker on file change
 ```
+
 
 ## CLI Usage
 

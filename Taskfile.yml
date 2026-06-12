@@ -24,15 +24,30 @@ tasks:
     cmds:
       - air -c configs/air.worker.toml
 
-  test:
-    desc: Run Go tests
-    cmds:
-      - go test ./...
-
   fmt:
     desc: Format Go code
     cmds:
       - go fmt ./...
+
+  docker:up:
+    desc: Build images and start all services (postgres, redis, server, worker)
+    cmds:
+      - docker compose up --build -d
+
+  docker:down:
+    desc: Stop and remove all containers
+    cmds:
+      - docker compose down
+
+  docker:logs:
+    desc: Follow logs from all services
+    cmds:
+      - docker compose logs -f
+
+  docker:ps:
+    desc: Show running containers
+    cmds:
+      - docker compose ps
 
   proto:
     desc: Regenerate protobuf and gRPC Go files
