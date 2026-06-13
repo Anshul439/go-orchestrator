@@ -2,14 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math/rand"
 	"os"
+	"os/exec"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
-	"time"
 
 	"github.com/anshul439/go-orchestrator/internal/config"
 	"github.com/anshul439/go-orchestrator/internal/logger"
@@ -67,29 +68,19 @@ func runWorker(ctx context.Context, client pb.OrchestratorServiceClient, id int,
 			return
 		}
 
-		task := msg.Payload.(*pb.ServerMessage_Task).Task
+		taskMsg, ok := msg.Payload.(*pb.ServerMessage_Task)
+		if !ok {
+			continue
+		}
+		task := taskMsg.Task
 
-		log.Info("processing job",
+		log.Info("received job",
 			slog.String("worker_id", workerID),
 			slog.Int("job_id", int(task.JobId)),
 			slog.String("type", task.Type),
 		)
 
-		// simulate work
-		time.Sleep(7 * time.Second)
-
-		log.Info("simulating job execution",
-			slog.Int("job_id", int(task.JobId)),
-			slog.String("type", task.Type),
-			slog.String("payload", task.Payload),
-		)
-
-		success := rand.Intn(2) != 0
-
-		errMsg := ""
-		if !success {
-			errMsg = "simulated failure"
-		}
+		success, errMsg := executeJob(ctx, task.Payload, log)
 
 		if err := stream.Send(&pb.WorkerMessage{
 			WorkerId: workerID,
@@ -104,4 +95,32 @@ func runWorker(ctx context.Context, client pb.OrchestratorServiceClient, id int,
 			return
 		}
 	}
+}
+
+func executeJob(ctx context.Context, payload string, log *slog.Logger) (bool, string) {
+	var p struct {
+		Command string `json:"command"`
+	}
+	if err := json.Unmarshal([]byte(payload), &p); err != nil {
+		return false, fmt.Sprintf("invalid payload: %v", err)
+	}
+	if p.Command == "" {
+		return false, "missing required field: command"
+	}
+
+	log.Info("executing command", slog.String("command", p.Command))
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", p.Command)
+	out, err := cmd.CombinedOutput()
+
+	output := strings.TrimSpace(string(out))
+	if output != "" {
+		log.Info("command output", slog.String("output", output))
+	}
+
+	if err != nil {
+		return false, fmt.Sprintf("command failed: %v\n%s", err, output)
+	}
+
+	return true, ""
 }

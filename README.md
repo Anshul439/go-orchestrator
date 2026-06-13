@@ -85,7 +85,7 @@ task docker:down
 The server's gRPC port is exposed on `localhost:50051`, so you can still use the CLI from your host machine:
 
 ```bash
-go run ./cmd/cli submit --type=send_email --payload='{}'
+go run ./cmd/cli submit --type=shell --payload='{"command":"echo hello"}'
 go run ./cmd/cli list
 ```
 
@@ -156,14 +156,11 @@ task dev:worker   # auto-restarts worker on file change
 # Start the server first
 task server
 
-# Submit a job with type and payload
-go run ./cmd/cli submit --type=send_email --payload='{"to":"x@y.com"}'
+# Submit a shell command job
+go run ./cmd/cli submit --type=shell --payload='{"command":"echo hello world"}'
 
-# Submit with custom max retries
-go run ./cmd/cli submit --type=resize_image --payload='{"url":"s3://img.jpg"}' --retries=5
-
-# Submit with defaults (type=generic, payload={}, retries=3)
-go run ./cmd/cli submit
+# Submit with retries
+go run ./cmd/cli submit --type=shell --payload='{"command":"go test ./..."}' --retries=3
 
 # Check job status
 go run ./cmd/cli status <job-id>
