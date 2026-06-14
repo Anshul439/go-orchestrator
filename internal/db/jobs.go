@@ -96,26 +96,28 @@ func ResetRunningJobs(
 // JobRow is the DB representation of a job.
 // Distinct from queue.Job, which is the lightweight in-memory struct used by the queue and workers.
 type JobRow struct {
-	ID         int
-	Status     string
-	RetryCount int
-	MaxRetries int
-	Type       string
-	Payload    string
+	ID            int
+	Status        string
+	RetryCount    int
+	MaxRetries    int
+	Type          string
+	Payload       string
+	WorkflowRunID *int // nil for regular jobs
+	StepIndex     *int // nil for regular jobs
 }
 
 func GetJob(conn *pgxpool.Pool, jobID int) (JobRow, error) {
 	var row JobRow
-
-	query := `SELECT id, status, retry_count, max_retries, type, payload FROM jobs WHERE id = $1`
+	query := `SELECT id, status, retry_count, max_retries, type, payload, workflow_run_id, step_index
+	          FROM jobs WHERE id = $1`
 	err := conn.QueryRow(context.Background(), query, jobID).
-		Scan(&row.ID, &row.Status, &row.RetryCount, &row.MaxRetries, &row.Type, &row.Payload)
-
+		Scan(&row.ID, &row.Status, &row.RetryCount, &row.MaxRetries, &row.Type, &row.Payload,
+			&row.WorkflowRunID, &row.StepIndex)
 	return row, err
 }
 
 func ListJobs(db *pgxpool.Pool, status string) ([]JobRow, error) {
-	query := `SELECT id, status, retry_count, max_retries, type, payload FROM jobs`
+	query := `SELECT id, status, retry_count, max_retries, type, payload, workflow_run_id, step_index FROM jobs`
 	args := []any{}
 
 	if status != "" {
@@ -134,7 +136,8 @@ func ListJobs(db *pgxpool.Pool, status string) ([]JobRow, error) {
 	var jobs []JobRow
 	for rows.Next() {
 		var j JobRow
-		if err := rows.Scan(&j.ID, &j.Status, &j.RetryCount, &j.MaxRetries, &j.Type, &j.Payload); err != nil {
+		if err := rows.Scan(&j.ID, &j.Status, &j.RetryCount, &j.MaxRetries, &j.Type, &j.Payload,
+			&j.WorkflowRunID, &j.StepIndex); err != nil {
 			return nil, err
 		}
 		jobs = append(jobs, j)

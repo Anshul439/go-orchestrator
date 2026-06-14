@@ -19,6 +19,9 @@ func usage() {
 	fmt.Println("  go run ./cmd/cli status <job-id>")
 	fmt.Println("  go run ./cmd/cli list [--status=<status>]")
 	fmt.Println("  go run ./cmd/cli cancel <job-id>")
+	fmt.Println("  go run ./cmd/cli workflow list")
+	fmt.Println("  go run ./cmd/cli workflow trigger <name>")
+	fmt.Println("  go run ./cmd/cli workflow status <run-id>")
 }
 
 func grpcTarget() string {
@@ -132,9 +135,64 @@ func main() {
 		}
 		fmt.Printf("job %d cancelled\n", resp.JobId)
 
+	case "workflow":
+		if len(os.Args) < 3 {
+			fmt.Println("error: missing workflow subcommand (list, trigger, status)")
+			usage()
+			os.Exit(1)
+		}
+
+		switch os.Args[2] {
+		case "list":
+			resp, err := client.ListWorkflows(context.Background(), &pb.ListWorkflowsRequest{})
+			if err != nil {
+				fmt.Println("error:", err)
+				os.Exit(1)
+			}
+			for _, wf := range resp.Workflows {
+				fmt.Printf("%-20s (%d steps)\n", wf.Name, wf.StepCount)
+			}
+
+		case "trigger":
+			if len(os.Args) < 4 {
+				fmt.Println("error: missing workflow name")
+				os.Exit(1)
+			}
+			resp, err := client.TriggerWorkflow(context.Background(), &pb.TriggerWorkflowRequest{Name: os.Args[3]})
+			if err != nil {
+				fmt.Println("error:", err)
+				os.Exit(1)
+			}
+			fmt.Printf("workflow triggered, run id: %d\n", resp.RunId)
+
+		case "status":
+			if len(os.Args) < 4 {
+				fmt.Println("error: missing run id")
+				os.Exit(1)
+			}
+			runID, err := strconv.Atoi(os.Args[3])
+			if err != nil {
+				fmt.Println("error: run id must be a number")
+				os.Exit(1)
+			}
+			resp, err := client.GetWorkflowStatus(context.Background(), &pb.GetWorkflowStatusRequest{RunId: int32(runID)})
+			if err != nil {
+				fmt.Println("error:", err)
+				os.Exit(1)
+			}
+			fmt.Printf("run %d (%s): status=%s step=%d/%d\n",
+				resp.RunId, resp.WorkflowName, resp.Status, resp.CurrentStep, resp.TotalSteps)
+
+		default:
+			fmt.Printf("error: unknown workflow subcommand %q\n", os.Args[2])
+			usage()
+			os.Exit(1)
+		}
+
 	default:
 		fmt.Printf("error: unknown command %q\n", os.Args[1])
 		usage()
 		os.Exit(1)
 	}
+
 }

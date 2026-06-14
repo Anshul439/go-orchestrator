@@ -2,25 +2,28 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
 
 	"github.com/anshul439/go-orchestrator/internal/db"
 	"github.com/anshul439/go-orchestrator/internal/queue"
+	"github.com/anshul439/go-orchestrator/internal/workflow"
 	pb "github.com/anshul439/go-orchestrator/proto"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Server implements the generated OrchestratorServiceServer interface.
 type Server struct {
-	pb.UnimplementedOrchestratorServiceServer // required embed — handles unimplemented RPCs gracefully
-	db                                        *pgxpool.Pool
-	queue                                     queue.Queue
+	pb.UnimplementedOrchestratorServiceServer
+	db       *pgxpool.Pool
+	queue    queue.Queue
+	registry *workflow.Registry
 }
 
-func New(db *pgxpool.Pool, q queue.Queue) *Server {
-	return &Server{db: db, queue: q}
+func New(db *pgxpool.Pool, q queue.Queue, registry *workflow.Registry) *Server {
+	return &Server{db: db, queue: q, registry: registry}
 }
 
 func (s *Server) SubmitJob(ctx context.Context, req *pb.SubmitJobRequest) (*pb.SubmitJobResponse, error) {
@@ -107,7 +110,6 @@ func (s *Server) handleResult(ctx context.Context, result *pb.TaskResult) {
 		return
 	}
 
-	// Job was cancelled while the worker was still executing — ignore the result.
 	if row.Status == "cancelled" {
 		return
 	}
@@ -115,6 +117,10 @@ func (s *Server) handleResult(ctx context.Context, result *pb.TaskResult) {
 	if result.Success {
 		s.queue.Ack(ctx, queue.Job{ID: jobID})
 		db.UpdateJobState(s.db, jobID, "completed", row.RetryCount)
+
+		if row.WorkflowRunID != nil {
+			s.advanceWorkflow(ctx, *row.WorkflowRunID, *row.StepIndex)
+		}
 		return
 	}
 
@@ -134,6 +140,10 @@ func (s *Server) handleResult(ctx context.Context, result *pb.TaskResult) {
 	} else {
 		db.UpdateJobState(s.db, job.ID, "failed", job.RetryCount)
 		s.queue.Fail(ctx, job)
+
+		if row.WorkflowRunID != nil {
+			db.FailWorkflowRun(s.db, *row.WorkflowRunID)
+		}
 	}
 }
 
@@ -181,4 +191,95 @@ func (s *Server) CancelJob(ctx context.Context, req *pb.CancelJobRequest) (*pb.C
 		JobId:  int32(jobID),
 		Status: "cancelled",
 	}, nil
+}
+
+func (s *Server) TriggerWorkflow(ctx context.Context, req *pb.TriggerWorkflowRequest) (*pb.TriggerWorkflowResponse, error) {
+	wf, ok := s.registry.Get(req.Name)
+	if !ok {
+		return nil, fmt.Errorf("workflow %q not found", req.Name)
+	}
+
+	runID, err := db.CreateWorkflowRun(s.db, wf.Name, len(wf.Steps))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.submitWorkflowStep(ctx, runID, 0, wf); err != nil {
+		return nil, err
+	}
+
+	return &pb.TriggerWorkflowResponse{RunId: int32(runID)}, nil
+}
+
+func (s *Server) ListWorkflows(ctx context.Context, req *pb.ListWorkflowsRequest) (*pb.ListWorkflowsResponse, error) {
+	var infos []*pb.WorkflowInfo
+	for _, wf := range s.registry.List() {
+		infos = append(infos, &pb.WorkflowInfo{
+			Name:      wf.Name,
+			StepCount: int32(len(wf.Steps)),
+		})
+	}
+	return &pb.ListWorkflowsResponse{Workflows: infos}, nil
+}
+
+func (s *Server) GetWorkflowStatus(ctx context.Context, req *pb.GetWorkflowStatusRequest) (*pb.GetWorkflowStatusResponse, error) {
+	run, err := db.GetWorkflowRun(s.db, int(req.RunId))
+	if err != nil {
+		return nil, err
+	}
+	return &pb.GetWorkflowStatusResponse{
+		RunId:        int32(run.ID),
+		WorkflowName: run.WorkflowName,
+		Status:       run.Status,
+		CurrentStep:  int32(run.CurrentStep),
+		TotalSteps:   int32(run.TotalSteps),
+	}, nil
+}
+
+func (s *Server) submitWorkflowStep(ctx context.Context, runID, stepIndex int, wf workflow.Workflow) error {
+	step := wf.Steps[stepIndex]
+
+	payload, err := json.Marshal(struct {
+		Command string `json:"command"`
+	}{Command: step.Command})
+	if err != nil {
+		return err
+	}
+
+	jobID, err := db.InsertWorkflowStep(s.db, runID, stepIndex, string(payload))
+	if err != nil {
+		return err
+	}
+
+	return s.queue.Enqueue(ctx, queue.Job{
+		ID:         jobID,
+		MaxRetries: 0,
+		Type:       "shell",
+		Payload:    string(payload),
+	})
+}
+
+// advanceWorkflow moves the workflow to the next step or marks it complete/failed.
+func (s *Server) advanceWorkflow(ctx context.Context, runID, completedStepIndex int) {
+	run, err := db.GetWorkflowRun(s.db, runID)
+	if err != nil {
+		return
+	}
+
+	nextStep := completedStepIndex + 1
+	if nextStep >= run.TotalSteps {
+		db.AdvanceWorkflowRun(s.db, runID)
+		db.CompleteWorkflowRun(s.db, runID)
+		return
+	}
+
+	db.AdvanceWorkflowRun(s.db, runID)
+
+	wf, ok := s.registry.Get(run.WorkflowName)
+	if !ok {
+		db.FailWorkflowRun(s.db, runID)
+		return
+	}
+
+	s.submitWorkflowStep(ctx, runID, nextStep, wf)
 }

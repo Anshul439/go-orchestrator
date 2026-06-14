@@ -9,6 +9,8 @@ A distributed job orchestrator built in Go. The server coordinates job assignmen
 - Distributed workers (`cmd/worker`) — separate processes communicating with the server via bidirectional gRPC streams
 - Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
 - Postgres-backed job persistence
+- Real command execution — workers run shell commands via `exec.Command`
+- Sequential workflow engine — chain multiple commands into named workflows with automatic step progression
 - Exponential backoff retry with configurable max retries
 - Delayed job scheduling via Redis sorted sets
 - Crash recovery — in-flight jobs are automatically re-queued when a worker disconnects unexpectedly, no server restart needed
@@ -21,9 +23,10 @@ A distributed job orchestrator built in Go. The server coordinates job assignmen
 
 ```
 cmd/cli  ──gRPC──►  cmd/server  ◄──gRPC stream──  cmd/worker
-                        ├── internal/server   (gRPC handlers)
-                        ├── internal/queue    (Redis queue)
-                        └── internal/db       (Postgres)
+                        ├── internal/server     (gRPC handlers + workflow engine)
+                        ├── internal/workflow   (workflow registry)
+                        ├── internal/queue      (Redis queue)
+                        └── internal/db         (Postgres)
 ```
 
 The server and workers are separate processes. Workers connect to the server over a persistent
@@ -178,11 +181,38 @@ go run ./cmd/cli list --status=failed
 go run ./cmd/cli cancel <job-id>
 ```
 
+## Workflows
+
+Workflows are named sequences of shell commands executed in order. If any step fails, the workflow is marked failed.
+
+```bash
+# List available workflows
+go run ./cmd/cli workflow list
+
+# Trigger a workflow
+go run ./cmd/cli workflow trigger backup
+
+# Check workflow run status
+go run ./cmd/cli workflow status <run-id>
+```
+
+Or using task shortcuts:
+```bash
+task workflow:list
+task workflow:trigger NAME=backup
+task workflow:status ID=1
+```
+
 Example output:
 ```
-job submitted, id: 42 (type=send_email)
-job 42 (send_email): status=completed retries=1/3
+backup               (3 steps)
+ci                   (2 steps)
+
+workflow triggered, run id: 1
+run 1 (backup): status=completed step=3/3
 ```
+
+Workflows are currently registered in `cmd/server/main.go`. YAML-based workflow definitions are planned.
 
 The CLI reads `GRPC_ADDR` too. If it is set to a listen-style value like `:50051`,
 the CLI treats it as `localhost:50051`.

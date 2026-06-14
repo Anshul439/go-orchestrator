@@ -14,6 +14,7 @@ import (
 	"github.com/anshul439/go-orchestrator/internal/logger"
 	"github.com/anshul439/go-orchestrator/internal/queue"
 	"github.com/anshul439/go-orchestrator/internal/server"
+	"github.com/anshul439/go-orchestrator/internal/workflow"
 	pb "github.com/anshul439/go-orchestrator/proto"
 
 	gredis "github.com/redis/go-redis/v9"
@@ -96,11 +97,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	registry := workflow.NewRegistry()
+	registry.Register(workflow.Workflow{
+		Name: "backup",
+		Steps: []workflow.Step{
+			{Command: "echo 'step 1: dumping database'"},
+			{Command: "echo 'step 2: compressing backup'"},
+			{Command: "echo 'step 3: uploading to s3'"},
+		},
+	})
+	registry.Register(workflow.Workflow{
+		Name: "ci",
+		Steps: []workflow.Step{
+			{Command: "go vet ./..."},
+			{Command: "go build ./..."},
+		},
+	})
+
 	grpcSrv := grpc.NewServer()
 
 	pb.RegisterOrchestratorServiceServer(
 		grpcSrv,
-		server.New(poolConn, q),
+		server.New(poolConn, q, registry),
 	)
 
 	go func() {

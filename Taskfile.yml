@@ -106,3 +106,22 @@ tasks:
       vars: [ID]
     cmds:
       - go run ./cmd/cli cancel {{.ID}}
+
+  workflow:list:
+    desc: List all registered workflows
+    cmds:
+      - go run ./cmd/cli workflow list
+
+  workflow:trigger:
+    desc: Trigger a workflow by name
+    requires:
+      vars: [NAME]
+    cmds:
+      - go run ./cmd/cli workflow trigger {{.NAME}}
+
+  workflow:status:
+    desc: Get workflow run status
+    requires:
+      vars: [ID]
+    cmds:
+      - go run ./cmd/cli workflow status {{.ID}}

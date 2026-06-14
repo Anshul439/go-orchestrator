@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS jobs (
+CREATE TABLE jobs (
     id          SERIAL PRIMARY KEY,
     status      TEXT        NOT NULL DEFAULT 'pending',
     retry_count INT         NOT NULL DEFAULT 0,
