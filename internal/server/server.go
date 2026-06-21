@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"math"
-	"time"
 
 	"github.com/anshul439/go-orchestrator/internal/db"
 	"github.com/anshul439/go-orchestrator/internal/queue"
@@ -133,7 +131,7 @@ func (s *Server) handleResult(ctx context.Context, result *pb.TaskResult) {
 
 	if job.RetryCount < job.MaxRetries {
 		job.RetryCount++
-		delay := time.Duration(math.Pow(2, float64(job.RetryCount))) * time.Second
+		delay := retryDelay(job.RetryCount)
 		if err := db.UpdateJobState(s.db, job.ID, "retrying", job.RetryCount); err != nil {
 			log.Error("handleResult: failed to mark job retrying", slog.Int("job_id", job.ID), slog.String("error", err.Error()))
 		}

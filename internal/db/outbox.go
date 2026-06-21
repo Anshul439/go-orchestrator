@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// OutboxEntry is a pending relay record joining a job_outbox row with its parent job.
 type OutboxEntry struct {
 	ID         int
 	JobID      int
@@ -14,6 +15,9 @@ type OutboxEntry struct {
 	MaxRetries int
 }
 
+// InsertJob creates a job and its corresponding outbox entry atomically.
+// The outbox guarantees the job is eventually delivered to Redis even if the process
+// crashes between the DB write and the queue enqueue.
 func InsertJob(
 	ctx context.Context,
 	pool *pgxpool.Pool,
@@ -45,6 +49,7 @@ func InsertJob(
 	return jobID, tx.Commit(ctx)
 }
 
+// InsertWorkflowStep creates a workflow step job and its outbox entry atomically.
 func InsertWorkflowStep(
 	ctx context.Context,
 	pool *pgxpool.Pool,

@@ -12,6 +12,8 @@ import (
 
 const pollInterval = 2 * time.Second
 
+// Start runs the outbox relay loop, polling the outbox table every 2 seconds and
+// forwarding unprocessed entries to the Redis queue. Blocks until ctx is cancelled.
 func Start(ctx context.Context, pool *pgxpool.Pool, q queue.Queue) {
 	log := slog.Default()
 	ticker := time.NewTicker(pollInterval)

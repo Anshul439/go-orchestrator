@@ -34,6 +34,9 @@ func UpdateJobState(
 	return err
 }
 
+// ResetRunningJobs resets any jobs left in the "running" state back to "pending" and
+// creates fresh outbox entries for them. Called on startup to recover jobs that were
+// in-flight when the server last crashed or restarted.
 func ResetRunningJobs(conn *pgxpool.Pool) error {
 	_, err := conn.Exec(context.Background(), `
 		WITH reset AS (

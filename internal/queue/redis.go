@@ -64,6 +64,7 @@ func (q *RedisQueue) Start(ctx context.Context) {
 	}()
 }
 
+// Recover moves unacknowledged jobs from the processing list back to the ready queue.
 func (q *RedisQueue) Recover(ctx context.Context) error {
 	jobIDs, err := q.client.LRange(
 		ctx,
@@ -334,6 +335,7 @@ func (q *RedisQueue) Cancel(ctx context.Context, job Job) error {
 	return err
 }
 
+// promoteDueJobs moves delayed jobs whose scheduled time has passed into the ready queue.
 func (q *RedisQueue) promoteDueJobs(
 	ctx context.Context,
 ) error {

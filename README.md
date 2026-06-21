@@ -7,15 +7,15 @@ A distributed job orchestrator built in Go. The server coordinates job assignmen
 - gRPC API for job submission, inspection, listing, and cancellation
 - CLI client (`cmd/cli`) for submitting, inspecting, listing, and cancelling jobs
 - Distributed workers (`cmd/worker`) — separate processes communicating with the server via bidirectional gRPC streams
-- Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
-- Transactional outbox pattern — job submissions are crash-safe; a background relay ensures jobs are eventually delivered to Redis
-- Postgres-backed job persistence
 - Real command execution — workers run shell commands via `exec.Command`
 - Sequential workflow engine — chain multiple commands into named workflows
 - Exponential backoff retry with configurable max retries
 - Delayed job scheduling via Redis sorted sets
 - Crash recovery — jobs interrupted by worker or server failures are automatically re-queued on restart
 - Job cancellation — cancel pending or running jobs via CLI
+- Redis-backed queue with reliable delivery (`BRPOPLPUSH` pattern)
+- Transactional outbox pattern — job submissions are crash-safe; a background relay ensures jobs are eventually delivered to Redis
+- Postgres-backed job persistence
 - Docker Compose setup — one command to run the full stack
 - Structured logging (`log/slog`)
 - Graceful shutdown
@@ -98,11 +98,6 @@ go run ./cmd/cli submit --type=shell --payload='{"command":"echo hello"}'
 go run ./cmd/cli list
 ```
 
-Exposed ports:
-
-| Service | Port  |
-|---------|-------|
-| Server  | 50051 |
 
 Postgres and Redis are only accessible within the Docker network. To inspect them directly:
 
@@ -158,6 +153,33 @@ task dev:server   # auto-restarts server on file change
 task dev:worker   # auto-restarts worker on file change
 ```
 
+
+## Testing
+
+The test suite covers three tiers. Integration and E2E tests require a local Postgres and Redis instance.
+
+```bash
+# Run the full suite (sequential — integration tests share a DB)
+task test
+
+# Unit tests only — no Postgres or Redis required
+task test:unit
+
+# DB integration tests only
+task test:integration
+
+# End-to-end tests only
+task test:e2e
+```
+
+| Layer | Location | What's tested |
+|---|---|---|
+| **Unit** | `internal/workflow`, `internal/server` | YAML parsing, registry, exponential backoff |
+| **DB integration** | `internal/db` | Job CRUD, outbox lifecycle, crash recovery (`ResetRunningJobs`), workflow step dispatch |
+| **Relay** | `internal/outbox` | Happy path, Redis failure (entry stays unprocessed), skip already-processed |
+| **E2E** | `e2e/` | Job lifecycle (submit → relay → worker → completed), workflow abort on step failure, retry exhaustion |
+
+> Unit tests always run offline. Integration and E2E tests require local Postgres and Redis and are skipped automatically if the dependencies are unavailable.
 
 ## CLI Usage
 
